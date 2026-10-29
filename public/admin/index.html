@@ -56,7 +56,7 @@ table { width: 100%; border-collapse: collapse; } th, td { text-align: left; pad
   var $ = function (id) { return document.getElementById(id); };
   var CH = { youtube: 'YouTube', facebook: 'Facebook', tiktok: 'TikTok', website: 'Website/SEO' };
   var ST = { DRAFT: 'Nháp', PENDING_APPROVAL: 'Chờ duyệt', APPROVED: 'Đã duyệt', SCHEDULED: 'Đã xếp lịch', PUBLISHING: 'Đang đăng', PUBLISHED: 'Đã đăng', FAILED: 'Lỗi', REJECTED: 'Từ chối', CANCELLED: 'Đã hủy' };
-  var TABS = [['overview', 'Tổng quan'], ['products', 'Sản phẩm'], ['campaigns', 'Chiến dịch'], ['content', 'Duyệt nội dung'], ['settings', 'Cài đặt']];
+  var TABS = [['overview', 'Tổng quan'], ['analytics', 'Phân tích'], ['products', 'Sản phẩm'], ['campaigns', 'Chiến dịch'], ['content', 'Duyệt nội dung'], ['research', 'Nghiên cứu'], ['conversion', 'Chuyển đổi'], ['support', 'Hỗ trợ khách'], ['settings', 'Cài đặt']];
   var tab = 'overview';
   var money = function (n) { return Number(n).toLocaleString('vi-VN') + 'đ'; };
   function el(tag, text, cls) { var e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; }
@@ -90,7 +90,7 @@ table { width: 100%; border-collapse: collapse; } th, td { text-align: left; pad
   // ---------------------------------------------------------------- Tổng quan
   function viewOverview(o) {
     var v = el('div');
-    var kpis = [['Sản phẩm đang bán', o.products.filter(function (p) { return p.status === 'selling'; }).length], ['Chiến dịch đang chạy', o.campaigns.active], ['Chiến dịch chờ duyệt', o.campaigns.pending], ['Nội dung chờ duyệt', o.content.PENDING_APPROVAL], ['Đến giờ đăng tay', o.dueForManualPost], ['Việc của agent chờ / lỗi', o.jobs.QUEUED + o.jobs.RUNNING + ' / ' + o.jobs.FAILED]];
+    var kpis = [['Sản phẩm đang bán', o.products.filter(function (p) { return p.status === 'selling'; }).length], ['Chiến dịch đang chạy', o.campaigns.active], ['Chiến dịch chờ duyệt', o.campaigns.pending], ['Nội dung chờ duyệt', o.content.PENDING_APPROVAL], ['Đến giờ đăng tay', o.dueForManualPost], ['Việc của agent chờ / lỗi', o.jobs.QUEUED + o.jobs.RUNNING + ' / ' + o.jobs.FAILED], ['Ý tưởng mới', o.work.ideasNew], ['Đề xuất chờ bạn', o.work.proposalsPending], ['Phiếu hỗ trợ đang mở', o.work.ticketsOpen + (o.work.ticketsNeedOwner ? ' (' + o.work.ticketsNeedOwner + ' cần bạn)' : '')]];
     var g = el('div', undefined, 'grid'); kpis.forEach(function (k) { var c = el('div', undefined, 'kpi'); c.append(el('b', String(k[1])), el('span', k[0])); g.append(c); }); v.append(g);
 
     var ctl = el('div', undefined, 'card'); ctl.append(el('h2', 'Điều khiển'));
@@ -132,9 +132,11 @@ table { width: 100%; border-collapse: collapse; } th, td { text-align: left; pad
       var name = input(p && p.name); var type = document.createElement('select'); type.className = 'wide'; [['tool', 'Công cụ (quyền sử dụng)'], ['digital', 'Tài liệu số (giao file)']].forEach(function (o) { var op = el('option', o[1]); op.value = o[0]; type.append(op); }); type.value = (p && p.type) || 'tool';
       var price = input(p && p.priceVnd, 'number'); var url = input(p && p.buyUrl); var aud = input(p && p.audience);
       var ben = area(p && p.benefits.join('\n'), 3); var feat = area(p && p.approvedFeatures.join('\n'), 4); var del = input(p && p.deliveryNote); var sup = input(p && p.supportPolicy);
+      var faq = area(p && (p.faq || []).map(function (x) { return x.q + ' | ' + x.a; }).join('\n'), 5); var kw = input(p && (p.keywords || []).join(', ')); var comp = input(p && p.competitors); var inc = input(p && (p.includes || []).join(', '));
       var two = el('div', undefined, 'two'); two.append(field('Tên', name), field('Loại', type), field('Giá (đồng)', price), field('Link mua (trang bán, có thể kèm #mua)', url));
-      f.append(two, field('Khách mục tiêu', aud), field('Lợi ích cho khách (mỗi dòng một ý)', ben), field('Tính năng ĐÃ XÁC NHẬN (agent chỉ được nói những điều này)', feat), field('Cách giao hàng (ghi chú)', del), field('Chính sách hỗ trợ', sup));
-      f.append(el('p'), btn('Lưu', function () { act(rpc(p ? 'PATCH' : 'POST', p ? 'products/' + p.id : 'products', { name: name.value, type: type.value, priceVnd: price.value, buyUrl: url.value, audience: aud.value, benefits: ben.value, approvedFeatures: feat.value, deliveryNote: del.value, supportPolicy: sup.value }), 'Đã lưu. Chiến dịch đang chạy của sản phẩm này (nếu đổi giá/tính năng) cần duyệt lại.'); }, 'primary'));
+      f.append(two, field('Khách mục tiêu', aud), field('Lợi ích cho khách (mỗi dòng một ý)', ben), field('Tính năng ĐÃ XÁC NHẬN (agent chỉ được nói những điều này)', feat), field('Cách giao hàng (ghi chú)', del), field('Chính sách hỗ trợ', sup),
+        field('FAQ đã duyệt cho Customer Agent (mỗi dòng: Câu hỏi | Câu trả lời). Chỉ ghi điều đúng sự thật.', faq), field('Từ khóa (cách nhau dấu phẩy, bạn tự cung cấp)', kw), field('Ghi chú về đối thủ (bạn tự cung cấp, không bắt buộc)', comp), field('Sản phẩm này đã bao gồm (mã sản phẩm, cách nhau dấu phẩy; để Conversion Agent không đề xuất combo vô nghĩa)', inc));
+      f.append(el('p'), btn('Lưu', function () { act(rpc(p ? 'PATCH' : 'POST', p ? 'products/' + p.id : 'products', { name: name.value, type: type.value, priceVnd: price.value, buyUrl: url.value, audience: aud.value, benefits: ben.value, approvedFeatures: feat.value, deliveryNote: del.value, supportPolicy: sup.value, faq: faq.value, keywords: kw.value, competitors: comp.value, includes: inc.value }), 'Đã lưu. Chiến dịch đang chạy của sản phẩm này (nếu đổi giá/tính năng) cần duyệt lại.'); }, 'primary'));
       holder.replaceChildren(f); f.scrollIntoView({ behavior: 'smooth' });
     }
     return v;
@@ -195,6 +197,89 @@ table { width: 100%; border-collapse: collapse; } th, td { text-align: left; pad
     if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () { say('Đã chép gói đăng vào clipboard. Dán lên kênh rồi bấm "Đã đăng".'); }, function () { prompt('Chép gói đăng:', text); }); else prompt('Chép gói đăng:', text);
   }
 
+  // ---------------------------------------------------------------- Phân tích
+  function viewAnalytics(r) {
+    var v = el('div'); var head = el('div', undefined, 'card'); head.append(el('h2', 'Phân tích số liệu trang bán'));
+    if (!r.configured) { head.append(el('p', 'Chưa cấu hình. Đặt biến LANDING_ADMIN_PASSWORD (mật khẩu /admin/ của trang bán) trên Vercel để agent đọc số liệu. Chỉ đọc, không sửa gì trên trang bán.', 'muted')); v.append(head); return v; }
+    head.append(btn('Cập nhật số liệu (30 ngày)', function () { act(rpc('POST', 'analytics/refresh', { days: 30 }), 'Đã gọi trang bán.').then(function (d) { if (d && d.lastError) say(d.lastError, true); else say('Đã cập nhật.'); }); }, 'primary'));
+    if (r.lastError) head.append(el('p', r.lastError, 'bad'));
+    if (r.summary) head.append(el('p', 'Lần đọc gần nhất: ' + new Date(r.summary.fetchedAt).toLocaleString('vi-VN') + ' · ' + r.summary.days + ' ngày', 'muted tiny'));
+    v.append(head);
+    if (!r.summary) return v;
+    var t = r.summary.totals, rt = r.summary.rates, pc = function (x) { return x == null ? '—' : (x * 100).toFixed(1) + '%'; };
+    var g = el('div', undefined, 'grid'); [['Khách', t.visitors], ['Thấy khung giá', t.pricingViews + ' (' + pc(rt.pricing) + ')'], ['Bấm Mua', t.buyClicks + ' (' + pc(rt.buyClick) + ')'], ['Đơn đã tạo', t.orders], ['Đơn đã trả', t.paid + ' (' + pc(rt.paidAfterOrder) + ' đơn tạo)'], ['Doanh thu', money(t.revenue)]].forEach(function (k) { var c = el('div', undefined, 'kpi'); c.append(el('b', String(k[1])), el('span', k[0])); g.append(c); }); v.append(g);
+    var ins = el('div', undefined, 'card'); ins.append(el('h2', 'Gợi ý để bạn xem xét'));
+    if (!r.insights.length) ins.append(el('p', 'Chưa có gợi ý.', 'muted')); r.insights.forEach(function (i) { ins.append(el('div', (i.level === 'warn' ? '⚠ ' : '• ') + i.text)); });
+    ins.append(el('p', 'Đây là gợi ý theo luật đơn giản, không khẳng định nguyên nhân.', 'muted tiny')); v.append(ins);
+    var src = el('div', undefined, 'card'); src.append(el('h2', 'Lượt truy cập theo nguồn giới thiệu (ước lượng)'));
+    var tb = el('table'); r.summary.visitsBySource.forEach(function (s) { var tr = el('tr'); tr.append(el('td', s.channel), el('td', String(s.visits))); tb.append(tr); }); src.append(tb, el('p', r.summary.attributionNote, 'muted tiny')); v.append(src);
+    return v;
+  }
+
+  // ---------------------------------------------------------------- Nghiên cứu
+  function productSelect(products) { var s = document.createElement('select'); products.filter(function (p) { return p.status === 'selling'; }).forEach(function (p) { var o = el('option', p.name); o.value = p.id; s.append(o); }); return s; }
+  function viewResearch(d) {
+    var v = el('div'); var c = el('div', undefined, 'card'); c.append(el('h2', 'Research Agent'));
+    c.append(el('p', 'Đề xuất ý tưởng nội dung dưới dạng GIẢ THUYẾT. Hệ thống không có dữ liệu thị trường, nên không có ý tưởng nào được coi là chắc chắn hiệu quả. Cần worker chạy trên máy bạn, tốn quota Muse.', 'muted tiny'));
+    var sel = productSelect(d.products); var r = el('div', undefined, 'row'); r.append(sel, btn('Nhờ Research Agent', function () { act(rpc('POST', 'research/run', { productId: sel.value }), 'Đã xếp việc. Khi worker chạy xong, ý tưởng hiện ở đây.'); }, 'primary')); c.append(r); v.append(c);
+    var card = el('div', undefined, 'card'); card.append(el('h2', 'Ý tưởng (xếp theo điểm: độ phù hợp trừ công sức)'));
+    var t = el('table'); var h = el('tr'); ['Ý tưởng', 'Kênh', 'Công sức', 'Phù hợp', 'Điểm', ''].forEach(function (x) { h.append(el('th', x)); }); t.append(h);
+    var ideas = d.ideas.filter(function (i) { return i.status === 'NEW'; });
+    if (!ideas.length) { var tr0 = el('tr'); var td0 = el('td', 'Chưa có ý tưởng mới.', 'muted'); td0.colSpan = 6; tr0.append(td0); t.append(tr0); }
+    ideas.forEach(function (i) {
+      var tr = el('tr'); var n = el('td'); n.append(el('b', i.topic), el('div', i.angle), el('div', 'Vì sao: ' + i.why, 'muted tiny'), tag('Chưa kiểm chứng', 'warn'));
+      var a = el('td'); var box = el('div', undefined, 'actions'); var mine = d.campaigns.filter(function (x) { return x.productId === i.productId; });
+      box.append(btn('Thêm vào chiến dịch', function () {
+        if (!mine.length) { say('Sản phẩm này chưa có chiến dịch. Tạo chiến dịch trước.', true); return; }
+        var pick = mine[0]; if (mine.length > 1) { var n2 = prompt('Chọn chiến dịch:\n' + mine.map(function (x, k) { return (k + 1) + '. ' + x.name; }).join('\n'), '1'); if (n2 === null) return; pick = mine[Number(n2) - 1]; if (!pick) return; }
+        act(rpc('POST', 'research/' + i.id + '/accept', { campaignId: pick.id }), 'Đã thêm góc tiếp cận. Chiến dịch cần duyệt lại.');
+      }, 'primary'), btn('Bỏ', function () { act(rpc('POST', 'research/' + i.id + '/reject'), 'Đã bỏ.'); }));
+      a.append(box); tr.append(n, el('td', CH[i.channel] || 'Bất kỳ'), el('td', { low: 'Thấp', medium: 'Vừa', high: 'Cao' }[i.effort]), el('td', i.fit + '/5'), el('td', String(i.score)), a); t.append(tr);
+    });
+    card.append(t); v.append(card); return v;
+  }
+
+  // ---------------------------------------------------------------- Chuyển đổi
+  function viewConversion(d) {
+    var v = el('div'); var c = el('div', undefined, 'card'); c.append(el('h2', 'Conversion Agent'));
+    c.append(el('p', 'Chỉ ĐỀ XUẤT tiêu đề/CTA và combo để bạn cân nhắc. Không tự sửa trang bán, không tự đổi giá hay giảm giá, và chưa có thử nghiệm A/B (trang bán không hỗ trợ).', 'muted tiny'));
+    var sel = productSelect(d.products); var r = el('div', undefined, 'row'); r.append(sel, btn('Đề xuất tiêu đề và CTA (AI)', function () { act(rpc('POST', 'proposals/run', { productId: sel.value, kind: 'landing_copy' }), 'Đã xếp việc cho worker.'); }, 'primary'), btn('Đề xuất combo (luật cố định)', function () { act(rpc('POST', 'proposals/run', { kind: 'combo' }), 'Đã kiểm tra các cặp sản phẩm.').then(function (x) { if (x && x.note) say(x.note); }); })); c.append(r); v.append(c);
+    var card = el('div', undefined, 'card'); card.append(el('h2', 'Đề xuất chờ bạn'));
+    var open = d.proposals.filter(function (p) { return p.status === 'PENDING_APPROVAL'; });
+    if (!open.length) card.append(el('p', 'Không có đề xuất nào đang chờ.', 'muted'));
+    open.forEach(function (p) {
+      var row = el('div', undefined, 'card'); row.append(tag(p.type === 'combo' ? 'Combo' : 'Tiêu đề/CTA'), el('h3', p.title));
+      if (p.type === 'combo') row.append(el('div', 'Tổng giá lẻ: ' + money(p.detail.listPriceSum) + '. Giá combo do bạn quyết định, hệ thống không tự đặt.', 'muted'));
+      else row.append(el('div', 'CTA: ' + p.detail.cta), el('div', p.detail.rationale, 'muted tiny'));
+      var box = el('div', undefined, 'actions');
+      box.append(btn(p.type === 'combo' ? 'Chấp nhận (nhập giá)' : 'Chấp nhận (tôi sẽ tự áp dụng)', function () { var body = {}; if (p.type === 'combo') { var price = prompt('Giá combo (đồng):'); if (price === null) return; body.priceVnd = price; } act(rpc('POST', 'proposals/' + p.id + '/accept', body), p.type === 'combo' ? 'Đã tạo sản phẩm combo ở trạng thái nháp.' : 'Đã ghi nhận. Hãy tự cập nhật trang bán.'); }, 'primary'), btn('Từ chối', function () { act(rpc('POST', 'proposals/' + p.id + '/reject'), 'Đã từ chối.'); }));
+      row.append(el('p'), box); card.append(row);
+    });
+    v.append(card); return v;
+  }
+
+  // ---------------------------------------------------------------- Hỗ trợ khách
+  function viewSupport(d) {
+    var v = el('div'); var c = el('div', undefined, 'card'); c.append(el('h2', 'Customer Agent: phiếu hỗ trợ'));
+    c.append(el('p', 'Dán câu hỏi của khách (từ Zalo, Facebook, email…). Agent soạn NHÁP trả lời từ FAQ của bạn; bạn đọc, chép và tự trả lời. Hệ thống không gửi gì cho khách. Ca hoàn tiền/mất tiền luôn chuyển cho bạn. Email, số điện thoại và chuỗi giống cookie/token bị che khi lưu.', 'muted tiny'));
+    var sel = document.createElement('select'); d.products.forEach(function (p) { var o = el('option', p.name); o.value = p.id; sel.append(o); });
+    var ref = input(''); ref.placeholder = 'Khách là ai (ví dụ: fb An) — không bắt buộc'; var q = area('', 3); q.placeholder = 'Nội dung khách hỏi';
+    c.append(field('Sản phẩm khách hỏi', sel), field('Khách', ref), field('Câu hỏi', q), el('p'), btn('Tạo phiếu và soạn nháp', function () { act(rpc('POST', 'tickets', { productId: sel.value, customerRef: ref.value, question: q.value }), 'Đã tạo phiếu và soạn nháp.'); }, 'primary')); v.append(c);
+    var open = d.tickets.filter(function (t) { return ['RESOLVED', 'CLOSED'].indexOf(t.status) < 0; });
+    var card = el('div', undefined, 'card'); card.append(el('h2', 'Đang mở (' + open.length + ')'));
+    if (!open.length) card.append(el('p', 'Không có phiếu nào đang mở.', 'muted'));
+    open.forEach(function (t) {
+      var row = el('div', undefined, 'card'); var head = el('div', undefined, 'row'); head.append(el('b', (t.customerRef || 'Khách') + ' · ' + new Date(t.createdAt).toLocaleString('vi-VN')));
+      if (t.needsOwner) head.append(tag('Cần chủ shop xem' + (t.reasons.length ? ': ' + t.reasons.join(', ') : ''), 'bad')); row.append(head, el('pre', t.question, 'muted'));
+      if (t.draft) { row.append(el('div', 'Nháp trả lời (' + { faq: 'từ FAQ', ai: 'AI soạn', template: 'mẫu', manual: 'bạn sửa' }[t.draft.source] + '):', 'muted tiny'), el('pre', t.draft.text)); t.draft.issues.forEach(function (i) { row.append(el('div', '✗ ' + i, 'bad tiny')); }); }
+      var box = el('div', undefined, 'actions');
+      if (t.draft) box.append(btn('Chép nháp', function () { if (navigator.clipboard) navigator.clipboard.writeText(t.draft.text).then(function () { say('Đã chép nháp. Dán vào cuộc trò chuyện với khách.'); }); else prompt('Chép nháp:', t.draft.text); }, 'primary'));
+      box.append(btn('Sửa nháp', function () { var x = prompt('Nội dung trả lời:', t.draft ? t.draft.text : ''); if (x !== null) act(rpc('POST', 'tickets/' + t.id + '/edit', { text: x }), 'Đã lưu nháp.'); }), btn('Soạn lại theo FAQ', function () { act(rpc('POST', 'tickets/' + t.id + '/draft'), 'Đã soạn lại.'); }), btn('Nhờ AI soạn', function () { act(rpc('POST', 'tickets/' + t.id + '/ask-ai'), 'Đã xếp việc cho worker.'); }), btn('Đã trả lời xong', function () { act(rpc('POST', 'tickets/' + t.id + '/resolve'), 'Đã đóng phiếu.'); }), btn('Xóa', function () { if (confirm('Xóa phiếu này?')) act(rpc('DELETE', 'tickets/' + t.id), 'Đã xóa.'); }, 'danger'));
+      row.append(el('p'), box); card.append(row);
+    });
+    v.append(card); return v;
+  }
+
   // ---------------------------------------------------------------- Cài đặt
   function viewSettings(o) {
     var v = el('div'); var c1 = el('div', undefined, 'card'); c1.append(el('h2', 'Kênh được phép dùng'));
@@ -214,6 +299,10 @@ table { width: 100%; border-collapse: collapse; } th, td { text-align: left; pad
     else if (tab === 'products') load = rpc('GET', 'products').then(viewProducts);
     else if (tab === 'campaigns') load = Promise.all([rpc('GET', 'products'), rpc('GET', 'campaigns')]).then(function (r) { return viewCampaigns({ products: r[0], campaigns: r[1] }); });
     else if (tab === 'content') load = rpc('GET', 'content').then(viewContent);
+    else if (tab === 'analytics') load = rpc('GET', 'analytics').then(viewAnalytics);
+    else if (tab === 'research') load = Promise.all([rpc('GET', 'products'), rpc('GET', 'research'), rpc('GET', 'campaigns')]).then(function (r) { return viewResearch({ products: r[0], ideas: r[1], campaigns: r[2] }); });
+    else if (tab === 'conversion') load = Promise.all([rpc('GET', 'products'), rpc('GET', 'proposals')]).then(function (r) { return viewConversion({ products: r[0], proposals: r[1] }); });
+    else if (tab === 'support') load = Promise.all([rpc('GET', 'products'), rpc('GET', 'tickets')]).then(function (r) { return viewSupport({ products: r[0], tickets: r[1] }); });
     else load = rpc('GET', 'overview').then(viewSettings);
     return load.then(function (node) { $('view').replaceChildren(node); }).catch(function (e) { say(e.message, true); });
   }

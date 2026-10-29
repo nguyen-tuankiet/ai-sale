@@ -151,11 +151,11 @@ const activeCampaign = (agents, product) => { const campaign = agents.createCamp
     assert.ok(!/https?:\/\//.test(prompt.replace('Không chèn đường link', '')) && !/hatch_|token|cookie/i.test(prompt));
   });
 
-  await check('Command Center: tổng quan trung thực về từng agent (chưa xây thì ghi "off")', () => {
+  await check('Command Center: tổng quan trung thực về từng agent (chưa cấu hình/chưa kết nối thì nói rõ)', () => {
     const { agents } = setup();
     const view = agents.overview();
     const byName = Object.fromEntries(view.agents.map((agent) => [agent.name, agent.state]));
-    assert.strictEqual(byName['Content Agent'], 'offline'); assert.strictEqual(byName['Research Agent'], 'off'); assert.strictEqual(byName['Distribution Agent'], 'manual');
+    assert.strictEqual(byName['Content Agent'], 'offline'); assert.strictEqual(byName['Research Agent'], 'offline'); assert.strictEqual(byName['Analytics Agent'], 'off'); assert.strictEqual(byName['Distribution Agent'], 'manual');
     agents.heartbeat('w1');
     assert.strictEqual(agents.overview().agents.find((agent) => agent.name === 'Content Agent').state, 'online');
   });

@@ -34,13 +34,16 @@ export function extractJson(text, key = 'title') {
   return null;
 }
 
-// Xử lý một việc: ask(prompt) trả về văn bản của AI. Ném lỗi có `retry=false` cho lỗi không thể thử lại (hết cookie, hết quota).
+// Xử lý một việc: ask(prompt) trả về văn bản của AI; job.expect là khóa JSON cần có (title | ideas | variants | reply).
+// Ném lỗi có `retry=false` cho lỗi không thể thử lại (hết cookie, hết quota). Trả về đối tượng JSON đã tách để gửi về máy chủ.
 export async function runJob(job, ask) {
   let text;
-  try { text = await ask(job.prompt); } catch (error) { const wrapped = new Error(error.message || 'AI không trả lời được.'); wrapped.retry = !['AUTH_REQUIRED', 'QUOTA'].includes(error.code); throw wrapped; }
-  const result = extractJson(text, 'title');
-  if (!result || typeof result.body !== 'string') { const error = new Error('AI trả lời không đúng định dạng JSON {"title","body"}.'); error.retry = true; throw error; }
-  return { title: String(result.title), body: String(result.body) };
+  try { text = await ask(job.prompt, job); } catch (error) { const wrapped = new Error(error.message || 'AI không trả lời được.'); wrapped.retry = !['AUTH_REQUIRED', 'QUOTA'].includes(error.code); throw wrapped; }
+  const key = job.expect || 'title';
+  const result = extractJson(text, key);
+  const valid = result && (key !== 'title' || typeof result.body === 'string');
+  if (!valid) { const error = new Error(`AI trả lời không đúng định dạng JSON (thiếu "${key}").`); error.retry = true; throw error; }
+  return result;
 }
 
 async function main() {
@@ -60,7 +63,13 @@ async function main() {
 
   let ask;
   if (process.env.LOCAL_MODEL === 'template') {
-    ask = async () => JSON.stringify({ title: 'Bản nháp thử từ worker', body: 'Nội dung thử, chưa dùng AI. Hãy xóa bản nháp này.' });
+    // Chế độ thử luồng (không dùng AI): trả dữ liệu mẫu đúng định dạng cho từng loại việc. Nội dung ghi rõ là bản thử.
+    ask = async (prompt, job) => JSON.stringify({
+      title: { title: 'Bản nháp thử từ worker', body: 'Nội dung thử, chưa dùng AI. Hãy xóa bản nháp này.' },
+      ideas: { ideas: [{ topic: 'Ý tưởng thử: quay màn hình thao tác', channel: 'tiktok', angle: 'Demo ngắn thao tác chính (bản thử)', why: 'Dữ liệu thử, không phải nghiên cứu thật', effort: 'low', fit: 4 }, { topic: 'Ý tưởng thử: bài hướng dẫn cài đặt', channel: 'website', angle: 'Các bước cài đặt (bản thử)', why: 'Dữ liệu thử, không phải nghiên cứu thật', effort: 'low', fit: 3 }] },
+      variants: { variants: [{ headline: 'Bản thử: video đều đặn mà bạn vẫn duyệt', cta: 'Xem gói', rationale: 'Dữ liệu thử, không phải đề xuất thật' }] },
+      reply: { reply: 'Bản thử: cảm ơn bạn đã liên hệ, mình sẽ kiểm tra và phản hồi sớm.', needsOwner: true },
+    }[job?.expect || 'title']);
   } else {
     const dir = path.resolve(process.env.MUSE_STUDIO_DIR || path.join(here, '..', '..', 'museinsight'));
     const require = createRequire(pathToFileURL(path.join(dir, 'package.json')));
@@ -75,11 +84,12 @@ async function main() {
     try {
       const { job, reason } = await call({ action: 'claim' });
       if (job) {
-        console.log(`Nhận việc ${job.id} (${job.channel})…`);
+        console.log(`Nhận việc ${job.id} (${job.agent}${job.channel ? ', ' + job.channel : ''})…`);
         try {
           const result = await runJob(job, ask);
           const done = await call({ action: 'complete', jobId: job.id, result });
-          console.log(`  → bản nháp ${done.content.id}: ${done.content.status === 'PENDING_APPROVAL' ? 'chờ duyệt' : 'giữ ở nháp (chưa qua kiểm tra chất lượng)'}`);
+          if (done.content) console.log(`  → bản nháp ${done.content.id}: ${done.content.status === 'PENDING_APPROVAL' ? 'chờ duyệt' : 'giữ ở nháp (chưa qua kiểm tra chất lượng)'}`);
+          else console.log(`  → xong việc ${job.agent}, kết quả đang chờ bạn xem trong Command Center`);
         } catch (error) {
           console.error(`  ✗ ${error.message}`);
           await call({ action: 'fail', jobId: job.id, error: error.message, retry: error.retry !== false }).catch(() => {});

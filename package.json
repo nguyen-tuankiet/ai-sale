@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "node dev.mjs",
     "worker": "node worker/worker.mjs",
-    "test": "node marketing.test.js && node agents.test.js && node selftest.mjs"
+    "test": "node marketing.test.js && node agents.test.js && node agents2.test.js && node selftest.mjs"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }

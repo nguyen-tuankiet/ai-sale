@@ -18,7 +18,7 @@ function services(state) {
   const siteUrl = lib.landingUrl();
   const marketing = createMarketing({ getStore: () => ({ marketing: state.marketing || (state.marketing = {}) }), persist: () => {}, siteUrl });
   marketing.state().settings.siteUrl = siteUrl; // địa chỉ trang bán luôn theo LANDING_URL
-  const agents = createAgents({ state, marketing, siteUrl });
+  const agents = createAgents({ state, marketing, siteUrl, analyticsConfigured: Boolean(lib.env('LANDING_ADMIN_PASSWORD')) });
   seedProducts(state, agents);
   agents.syncOffers();
   return { marketing, agents };
@@ -30,9 +30,19 @@ function seedProducts(state, agents) {
   state.seeded = true;
   const buyUrl = `${lib.landingUrl()}/#mua`;
   const features = ['Tạo video bằng tài khoản Muse theo lịch', 'Duyệt video trước khi đăng lên YouTube', 'Quản lý nhiều kênh YouTube trong một bảng điều khiển', 'Theo dõi lượt xem và subscriber', 'Chạy trên máy của bạn, dữ liệu nằm trong thư mục data'];
+  // FAQ chỉ gồm điều đã có trong README/trang bán của tool; chủ shop xem lại và bổ sung ở tab Sản phẩm.
+  const faq = [
+    { q: 'Cần chuẩn bị gì để chạy Muse Studio?', a: 'Máy có Node.js 22 trở lên, Google Chrome hoặc Microsoft Edge, tài khoản Muse đăng nhập được trên muse.ai và tài khoản Google quản lý kênh YouTube.' },
+    { q: 'Có cần cài Node.js không?', a: 'Có. Cần Node.js 22 trở lên (tải bản LTS tại nodejs.org) và Google Chrome hoặc Microsoft Edge. Nếu chưa có Node, Start.bat sẽ tự mở trang tải giúp bạn.' },
+    { q: 'Dữ liệu và cookie của tôi nằm ở đâu?', a: 'Tất cả nằm trong thư mục data trên máy của bạn, không gửi đi đâu. Hãy bảo vệ máy như bảo vệ tài khoản và không chia sẻ thư mục này.' },
+    { q: 'Một ngày đăng được bao nhiêu video lên YouTube?', a: 'Mỗi project Google có hạn mức YouTube 10.000 đơn vị mỗi ngày, mỗi lần upload tốn 1.600, tức khoảng 6 video mỗi ngày cho toàn bộ kênh.' },
+    { q: 'Tắt máy thì lịch tự động có chạy không?', a: 'Lịch chỉ chạy khi máy đang bật và tool đang chạy. Nếu tắt máy đúng giờ chạy, lịch tự chạy bù khi bật lại trong cùng ngày.' },
+    { q: 'Cài đặt và chạy như thế nào?', a: 'Giải nén file tải về rồi bấm đúp Start.bat. Hướng dẫn từng bước có trong README đi kèm.' },
+    { q: 'Tôi cần hỗ trợ thì liên hệ ở đâu?', a: 'Gửi email tới tech.dev.fit@gmail.com kèm mã đơn hàng (dạng MSxxxxxxxx) và mô tả vấn đề bạn gặp.' },
+  ];
   const seeds = [
-    { name: 'Muse Studio', type: 'tool', priceVnd: 50000, buyUrl, audience: 'Chủ kênh YouTube muốn đăng video đều đặn bằng AI', benefits: ['Video ra đều đặn theo lịch mà vẫn do bạn duyệt', 'Quản lý nhiều kênh ở một nơi', 'Dữ liệu nằm trên máy của bạn'], approvedFeatures: features, deliveryNote: 'Tải file zip trên trang bán sau khi thanh toán.' },
-    { name: 'Muse Studio Pro', type: 'tool', priceVnd: 99000, buyUrl, audience: 'Người dùng Muse Studio muốn có thêm bộ prompt', benefits: ['Toàn bộ Muse Studio', 'Kèm gói prompt để bắt đầu nhanh'], approvedFeatures: ['Gồm toàn bộ Muse Studio', 'Kèm gói prompt'], deliveryNote: 'Tải file zip trên trang bán sau khi thanh toán.' },
+    { name: 'Muse Studio', type: 'tool', priceVnd: 50000, buyUrl, audience: 'Chủ kênh YouTube muốn đăng video đều đặn bằng AI', benefits: ['Video ra đều đặn theo lịch mà vẫn do bạn duyệt', 'Quản lý nhiều kênh ở một nơi', 'Dữ liệu nằm trên máy của bạn'], approvedFeatures: features, faq, deliveryNote: 'Tải file zip trên trang bán sau khi thanh toán.' },
+    { name: 'Muse Studio Pro', type: 'tool', priceVnd: 99000, buyUrl, includes: ['muse-studio'], audience: 'Người dùng Muse Studio muốn có thêm bộ prompt', benefits: ['Toàn bộ Muse Studio', 'Kèm gói prompt để bắt đầu nhanh'], approvedFeatures: ['Gồm toàn bộ Muse Studio', 'Kèm gói prompt'], faq: faq.concat([{ q: 'Gói prompt nằm ở đâu sau khi tải?', a: 'Trong thư mục Prompt-Pack (PDF hướng dẫn, file prompts, briefs).' }]), deliveryNote: 'Tải file zip trên trang bán sau khi thanh toán.' },
   ];
   for (const seed of seeds) { const saved = agents.saveProduct(seed); if (saved.data) agents.setProductStatus(saved.data.id, 'selling'); }
 }
