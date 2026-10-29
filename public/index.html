@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muse Studio · Nhật ký bán hàng công khai</title>
+<meta name="description" content="Bán Muse Studio (công cụ tạo và đăng video YouTube tự động) và gói prompt. Sổ thu chi công khai, số liệu thật từng đồng.">
+<meta property="og:title" content="Muse Studio · Nhật ký bán hàng công khai">
+<meta property="og:description" content="Công cụ tạo và đăng video YouTube tự động. Doanh thu, chi phí và số đơn được công khai, lấy từ giao dịch thật.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232563eb'/%3E%3Cpath d='M9 22V10l7 8 7-8v12' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="shop.css">
+<link rel="stylesheet" href="pay.css">
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="#top"><svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#2563eb"/><path d="M9 22V10l7 8 7-8v12" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="js-site-name">Muse Studio</span></a>
+  <nav><a href="#so">Sổ thu chi</a><a href="#mua">Sản phẩm</a><a href="#nhat-ky">Nhật ký</a><a href="#hoi-dap">Hỏi đáp</a><button id="theme" class="icon-btn" type="button" aria-label="Đổi giao diện sáng/tối">◐</button><a class="btn btn-primary btn-sm js-buy" href="#mua">Mua ngay</a></nav>
+</div></header>
+
+<main id="top">
+<section class="hero"><div class="wrap">
+  <span class="pill"><i class="dot"></i> Sổ công khai · cập nhật trực tiếp</span>
+  <h1>Bán công cụ làm video AI,<br><span class="grad">ghi sổ minh bạch từng đồng</span></h1>
+  <p class="lead">Muse Studio tạo video bằng tài khoản Muse theo lịch, bạn duyệt rồi tự đăng lên nhiều kênh YouTube. Đây là trang bán hàng của chính dự án: số đơn, doanh thu và chi phí bên dưới là số thật, kể cả khi bằng 0.</p>
+  <p class="lead small js-intro"></p>
+  <div class="cta"><a class="btn btn-primary js-buy" href="#mua">Xem sản phẩm</a><a class="btn btn-ghost" href="#so">Xem sổ thu chi</a></div>
+</div></section>
+
+<section id="so"><div class="wrap">
+  <span class="eyebrow">Sổ thu chi</span>
+  <h2>Đã kiếm được bao nhiêu?</h2>
+  <p class="muted" id="ledger-updated">Đang tải số liệu…</p>
+  <div class="cards" id="cards">
+    <div class="card big"><span>Tiền thật đã nhận</span><b id="v-revenue">—</b><small>Chỉ tính tiền khách đã chuyển và webhook ngân hàng xác nhận. Đơn chưa trả và đơn thử không tính.</small></div>
+    <div class="card"><span>Chi phí đã khai</span><b id="v-cost">—</b><small>Chủ dự án tự khai, liệt kê ở dưới.</small></div>
+    <div class="card"><span>Còn lại</span><b id="v-net">—</b><small>Doanh thu trừ chi phí đã khai.</small></div>
+    <div class="card"><span>Đơn đã bán</span><b id="v-orders">—</b><small id="v-plans"></small></div>
+    <div class="card"><span>Khách ghé trang</span><b id="v-visitors">—</b><small id="v-visitors-today"></small></div>
+    <div class="card" id="card-day" hidden><span>Hôm nay là</span><b id="v-day">—</b><small id="v-deadline"></small></div>
+  </div>
+  <div class="goal" id="goal" hidden>
+    <div class="goal-head"><b>Mục tiêu <span id="goal-amount"></span></b><span id="goal-pct"></span></div>
+    <div class="bar"><i id="goal-bar"></i></div>
+  </div>
+  <div class="two">
+    <div class="panel"><h3>Đơn gần đây</h3><ul class="list" id="recent"><li class="muted">Chưa có đơn nào.</li></ul><p class="muted tiny">Ẩn danh hoàn toàn: chỉ hiện gói, số tiền và thời điểm.</p></div>
+    <div class="panel"><h3>Các khoản chi đã khai</h3><ul class="list" id="costs"><li class="muted">Chưa khai khoản chi nào.</li></ul></div>
+  </div>
+</div></section>
+
+<section id="mua" class="alt"><div class="wrap">
+  <span class="eyebrow">Sản phẩm</span>
+  <h2>Chọn gói phù hợp</h2>
+  <p class="muted">Thanh toán một lần bằng chuyển khoản. Chuyển xong, nút tải về hiện ngay trên trang này, không cần chờ ai xác nhận.</p>
+  <div class="plans">
+    <article class="plan">
+      <h3>Muse Studio</h3><div class="price"><b data-price>50.000đ</b><span> một lần</span></div>
+      <ul class="ticks"><li>Tạo video bằng tài khoản Muse theo lịch</li><li>Duyệt video trước khi đăng lên YouTube</li><li>Quản lý nhiều kênh YouTube trong một bảng điều khiển</li><li>Theo dõi lượt xem và subscriber</li><li>Chạy trên máy của bạn, dữ liệu không rời khỏi máy</li></ul>
+      <a class="btn btn-ghost js-buy" href="#mua" data-plan="basic">Mua Muse Studio</a>
+    </article>
+    <article class="plan featured">
+      <span class="badge">Gồm cả prompt</span>
+      <h3>Muse Studio Pro</h3><div class="price"><b data-price-pro>99.000đ</b><span> một lần</span></div>
+      <ul class="ticks"><li>Toàn bộ Muse Studio</li><li>Kèm gói prompt (PDF hướng dẫn, file prompts, briefs)</li><li>Cập nhật gói theo file bạn tải về</li></ul>
+      <a class="btn btn-primary js-buy" href="#mua" data-plan="pro">Mua gói Pro</a>
+    </article>
+  </div>
+  <div class="shots"><img src="assets/overview.jpg" alt="Màn hình tổng quan của Muse Studio" loading="lazy"><img src="assets/review.jpg" alt="Màn hình duyệt video trước khi đăng" loading="lazy"><img src="assets/schedule.jpg" alt="Màn hình lịch tự động" loading="lazy"></div>
+  <p class="muted tiny js-policy"></p>
+</div></section>
+
+<section id="nhat-ky"><div class="wrap">
+  <span class="eyebrow">Nhật ký</span>
+  <h2>Chuyện gì đang diễn ra</h2>
+  <div id="diary" class="diary"><p class="muted">Chưa có bài nào được đăng.</p></div>
+  <div class="share"><b>Kể cho bạn bè nghe:</b> <a class="btn btn-ghost btn-sm" id="share-fb" target="_blank" rel="noreferrer">Chia sẻ Facebook</a> <button class="btn btn-ghost btn-sm" id="share-copy" type="button">Chép link</button></div>
+</div></section>
+
+<section id="hoi-dap" class="alt"><div class="wrap narrow">
+  <span class="eyebrow">Hỏi đáp</span>
+  <h2>Trước khi mua, bạn nên biết</h2>
+  <details open><summary>Tôi cần chuẩn bị gì?</summary><p>Máy tính có Node.js 22 trở lên, Google Chrome hoặc Microsoft Edge, một tài khoản Muse đăng nhập được trên muse.ai, và tài khoản Google quản lý kênh YouTube. Cài đặt từng bước có trong README đi kèm bản tải về.</p></details>
+  <details><summary>Dữ liệu của tôi nằm ở đâu?</summary><p>Mọi thứ chạy trên máy bạn. Cookie Muse và token YouTube lưu trong thư mục <code>data/</code> trên máy đó, vì vậy hãy bảo vệ máy như bảo vệ tài khoản của bạn và không chia sẻ thư mục này.</p></details>
+  <details><summary>Có rủi ro gì không?</summary><p>Công cụ điều khiển giao diện web của Muse nên có thể cần chỉnh khi Muse đổi giao diện. Upload YouTube bị giới hạn hạn mức theo project Google. Hãy kiểm tra điều khoản của Muse và YouTube trước khi dùng cho mục đích thương mại. Chúng tôi không hứa video sẽ có lượt xem hay kênh sẽ kiếm được tiền.</p></details>
+  <details><summary>Số liệu ở sổ thu chi có thật không?</summary><p>Doanh thu lấy từ giao dịch đã được webhook ngân hàng xác thực, đơn thử bị loại. Chi phí do chủ dự án tự khai nên bạn dựa vào đó với mức tin cậy tương ứng. Trang không dùng số giả.</p></details>
+  <details><summary>Cần hỗ trợ?</summary><p class="js-support-text">Gửi email kèm mã đơn.</p></details>
+</div></section>
+</main>
+
+<footer><div class="wrap"><span>© <span id="year"></span> <span class="js-site-name">Muse Studio</span> · Tác giả <a class="js-author" href="#">—</a></span><span class="muted tiny">Trang này không dùng cookie theo dõi; thống kê truy cập ẩn danh, đã loại bot.</span></div></footer>
+
+<script src="site.config.js"></script>
+<script src="shop.js"></script>
+<script src="pay.js"></script>
+<script src="analytics.js"></script>
+</body>
+</html>

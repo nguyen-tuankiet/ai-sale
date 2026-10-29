@@ -1,0 +1,12 @@
+{
+  "name": "muse-sales",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Trang bán Muse Studio và gói prompt: sổ thu chi công khai, thanh toán SePay tự giao file, hàng đợi quảng bá có duyệt",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "test": "node marketing.test.js && node selftest.mjs",
+    "release": "node release.mjs"
+  },
+  "engines": { "node": ">=22" }
+}
