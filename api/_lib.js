@@ -1,23 +1,9 @@
-// Phần dùng chung cho các hàm thanh toán và thống kê (chạy dạng Vercel Function, cũng chạy được ở site/dev.mjs).
-// Không có thư viện ngoài: chỉ dùng fetch có sẵn của Node. Mọi cấu hình bí mật nằm trong biến môi trường, không nằm trong mã.
+// Phần dùng chung cho các hàm API (Vercel Functions; cũng chạy được ở dev.mjs). Không có thư viện ngoài, chỉ dùng fetch có sẵn của Node.
+// Mọi cấu hình bí mật nằm trong biến môi trường, không nằm trong mã.
 const crypto = require('crypto');
-const fs = require('fs');
 
 const env = (name, fallback = '') => process.env[name] || fallback;
-
-function settings() {
-  return {
-    priceVnd: Number(env('PRICE_VND', '50000')),
-    proPriceVnd: Number(env('PRICE_PRO_VND', '99000')),
-    bankName: env('BANK_NAME', 'BIDV'),
-    bankAccount: env('BANK_ACCOUNT'),
-    bankHolder: env('BANK_HOLDER'),
-    downloadLimit: Number(env('DOWNLOAD_LIMIT', '5')),
-    qrBase: env('QR_BASE', 'https://vietqr.app/img'),
-    siteUrl: env('SITE_URL').replace(/\/+$/, ''),
-    supportEmail: env('SUPPORT_EMAIL'),
-  };
-}
+const landingUrl = () => env('LANDING_URL', 'https://muse-studio-landing.vercel.app').replace(/\/+$/, '');
 
 // ---------------------------------------------------------------- Redis (Upstash, gọi qua HTTP)
 const memory = new Map(); // chỉ dùng khi DEV_MEMORY=1 (chạy thử trên máy)
@@ -36,15 +22,8 @@ function memoryCommand([cmd, key, ...args]) {
       return 'OK';
     }
     case 'INCR': { const next = (alive ? Number(alive.value) : 0) + 1; put(String(next)); return next; }
-    case 'DECR': { const next = (alive ? Number(alive.value) : 0) - 1; put(String(next)); return next; }
     case 'EXPIRE': if (alive) alive.expires = now + Number(args[0]) * 1000; return alive ? 1 : 0;
     case 'DEL': memory.delete(key); return 1;
-    case 'HINCRBY': { const hash = alive ? alive.value : {}; hash[args[0]] = (Number(hash[args[0]]) || 0) + Number(args[1]); put(hash); return hash[args[0]]; }
-    case 'HGETALL': return alive ? Object.entries(alive.value).flatMap(([field, value]) => [field, String(value)]) : [];
-    case 'SADD': { const set = alive ? alive.value : new Set(); const had = set.has(String(args[0])); set.add(String(args[0])); put(set); return had ? 0 : 1; }
-    case 'LPUSH': { const list = alive ? alive.value : []; list.unshift(String(args[0])); put(list); return list.length; }
-    case 'LTRIM': { if (alive) alive.value = alive.value.slice(Number(args[0]), Number(args[1]) + 1); return 'OK'; }
-    case 'LRANGE': { if (!alive) return []; const end = Number(args[1]); return alive.value.slice(Number(args[0]), end < 0 ? undefined : end + 1); }
     default: throw new Error(`Lệnh Redis chưa hỗ trợ: ${cmd}`);
   }
 }
@@ -62,66 +41,20 @@ async function redis(command) {
   if (!response.ok || data.error) throw new Error(`Redis lỗi: ${data.error || response.status}`);
   return data.result;
 }
-// Gửi nhiều lệnh trong một lần gọi (dùng cho trang quản trị đọc thống kê nhiều ngày)
-async function pipeline(commands) {
-  if (!commands.length) return [];
-  if (env('DEV_MEMORY') === '1') return commands.map(memoryCommand);
-  const { url, token } = redisConfig();
-  const response = await fetch(`${url}/pipeline`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(commands) });
-  const data = await response.json().catch(() => null);
-  if (!response.ok || !Array.isArray(data)) throw new Error(`Redis pipeline lỗi: ${response.status}`);
-  return data.map((item) => { if (item.error) throw new Error(`Redis lỗi: ${item.error}`); return item.result; });
-}
-
-// Hai gói: basic (chỉ tool) và pro (tool + gói prompt). Số tiền luôn do máy chủ quyết định, không nhận từ trình duyệt.
-const planOf = (value) => (value === 'pro' ? 'pro' : 'basic');
-const planPrice = (plan, cfg = settings()) => (plan === 'pro' ? cfg.proPriceVnd : cfg.priceVnd);
-const planFile = (plan) => (plan === 'pro' ? 'muse-studio-pro.zip' : 'muse-studio.zip');
-
-const ORDER_PENDING_TTL = 60 * 60 * 24 * 2; // đơn chưa trả tiền giữ 2 ngày
-const ORDER_PAID_TTL = 60 * 60 * 24 * 90; // đơn đã trả giữ 90 ngày để khách tải lại
-async function getOrder(code) {
-  const raw = await redis(['GET', `order:${code}`]);
-  return raw ? JSON.parse(raw) : null;
-}
-const saveOrder = (order, ttl) => redis(['SET', `order:${order.code}`, JSON.stringify(order), 'EX', String(ttl)]);
-
-// ---------------------------------------------------------------- thống kê (ghi theo ngày giờ Việt Nam, không dùng cookie)
-const STAT_TTL = String(60 * 60 * 24 * 400);
-const dayKey = (offset = 0) => new Date(Date.now() + 7 * 3600e3 - offset * 86400e3).toISOString().slice(0, 10);
-// Ghi tăng các bộ đếm trong ngày; lỗi thống kê không bao giờ được làm hỏng đơn hàng
-async function statInc(fields) {
-  try {
-    const key = `st:${dayKey()}`;
-    for (const [field, amount] of Object.entries(fields)) await redis(['HINCRBY', key, field, String(amount)]);
-    await redis(['EXPIRE', key, STAT_TTL]);
-  } catch (error) { console.error('stat:', error.message); }
-}
-const isBot = (ua) => !ua || /bot|crawl|spider|slurp|preview|facebookexternalhit|lighthouse|headless|monitor|uptime|curl|wget|python|axios|node-fetch/i.test(ua);
-const deviceOf = (ua) => (/Mobi|Android|iPhone|iPad/i.test(ua) ? 'mobile' : 'desktop');
 
 // ---------------------------------------------------------------- tiện ích
 const sha = (value) => crypto.createHash('sha256').update(String(value)).digest();
 const safeEqual = (a, b) => crypto.timingSafeEqual(sha(a), sha(b));
 const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
-const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // bỏ ký tự dễ nhầm: O, 0, I, 1
-const randomCode = () => `MS${Array.from({ length: 8 }, () => CODE_ALPHABET[crypto.randomInt(CODE_ALPHABET.length)]).join('')}`;
-const randomToken = () => crypto.randomBytes(24).toString('hex');
 const noStore = (res) => res.setHeader('Cache-Control', 'no-store');
 const parseBody = (req) => {
   if (req.body && typeof req.body === 'object') return req.body;
   try { return JSON.parse(req.body || '{}'); } catch { return {}; }
 };
 
-// Ngân hàng có thể đổi chữ hoa/thường, bỏ dấu cách, nên tìm mã đơn trong nội dung đã làm sạch.
-function findCodes(...texts) {
-  const flat = texts.map((text) => String(text || '').toUpperCase().replace(/[^A-Z0-9]/g, '')).join(' ');
-  return [...new Set(flat.match(/MS[A-HJ-NP-Z2-9]{8}/g) || [])];
-}
-
-// ---------------------------------------------------------------- đăng nhập trang quản trị (cookie ký bằng HMAC, hết hạn sau 12 giờ)
-const ADMIN_COOKIE = 'muse_admin';
-const adminSecret = () => env('ADMIN_SECRET') || crypto.createHash('sha256').update(`muse-admin:${env('ADMIN_PASSWORD')}`).digest('hex');
+// ---------------------------------------------------------------- đăng nhập quản trị (cookie ký bằng HMAC, hết hạn sau 12 giờ)
+const ADMIN_COOKIE = 'sales_admin';
+const adminSecret = () => env('ADMIN_SECRET') || crypto.createHash('sha256').update(`sales-admin:${env('ADMIN_PASSWORD')}`).digest('hex');
 const hmac = (value) => crypto.createHmac('sha256', adminSecret()).update(value).digest('hex');
 function adminToken(hours = 12) { const expires = Date.now() + hours * 3600e3; return `${expires}.${hmac(String(expires))}`; }
 function isAdmin(req) {
@@ -136,65 +69,12 @@ const adminCookie = (req, value, maxAge) => {
   const secure = String(req.headers['x-forwarded-proto'] || '').includes('https') ? '; Secure' : '';
   return `${ADMIN_COOKIE}=${value}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}${secure}`;
 };
-
-// ---------------------------------------------------------------- file bản cài (giữ riêng tư, không nằm trong trang)
-async function readRelease(plan = 'basic') {
-  const pro = plan === 'pro';
-  const local = env(pro ? 'RELEASE_PRO_FILE' : 'RELEASE_FILE');
-  if (local) return fs.readFileSync(local);
-  const repo = env('RELEASE_REPO'); const token = env('GITHUB_TOKEN');
-  if (!repo || !token) throw new Error('Chưa cấu hình file bản cài (RELEASE_REPO và GITHUB_TOKEN).');
-  const ref = env('RELEASE_REF'); const file = env(pro ? 'RELEASE_PRO_PATH' : 'RELEASE_PATH', planFile(plan));
-  const response = await fetch(`https://api.github.com/repos/${repo}/contents/${file.split('/').map(encodeURIComponent).join('/')}${ref ? `?ref=${encodeURIComponent(ref)}` : ''}`, {
-    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github.raw+json', 'User-Agent': 'muse-studio-site', 'X-GitHub-Api-Version': '2022-11-28' },
-  });
-  if (!response.ok) throw new Error(`Không đọc được file bản cài (GitHub ${response.status}).`);
-  return Buffer.from(await response.arrayBuffer());
+// Worker trên máy bạn gọi bằng "Authorization: Bearer <WORKER_TOKEN>".
+function isWorker(req) {
+  const token = env('WORKER_TOKEN');
+  if (!token || token.length < 16) return false;
+  const given = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  try { return safeEqual(given, token); } catch { return false; }
 }
 
-// ---------------------------------------------------------------- giao dịch cần người xem (không khớp đơn, trả thừa, trả trùng) và cảnh báo vận hành
-// Không bao giờ để tiền khách đã chuyển "biến mất" lặng lẽ: mọi trường hợp bất thường đều ghi vào danh sách này để chủ shop xử lý (hoàn tiền, giao tay...).
-const REVIEW_LIST = 'pay:review';
-async function logReview(entry) {
-  try {
-    const safe = { ...entry, at: new Date().toISOString() };
-    if (safe.content) safe.content = String(safe.content).replace(/\s+/g, ' ').slice(0, 80);
-    await redis(['LPUSH', REVIEW_LIST, JSON.stringify(safe)]);
-    await redis(['LTRIM', REVIEW_LIST, '0', '99']);
-  } catch (error) { console.error('review-log:', error.message); }
-}
-async function listReview(limit = 30) {
-  const rows = (await redis(['LRANGE', REVIEW_LIST, '0', String(limit - 1)])) || [];
-  return rows.map((row) => { try { return JSON.parse(row); } catch { return null; } }).filter(Boolean);
-}
-// Sổ đơn đã thanh toán dùng cho trang công khai: ẩn danh (không email, không mã đơn).
-async function logPaid({ plan, amount }) {
-  try {
-    await redis(['LPUSH', 'paid:log', JSON.stringify({ at: new Date().toISOString(), plan, amount: Number(amount) })]);
-    await redis(['LTRIM', 'paid:log', '0', '999']);
-  } catch (error) { console.error('paid-log:', error.message); }
-}
-const emailConfigured = () => Boolean(env('RESEND_API_KEY') && env('MAIL_FROM'));
-
-// ---------------------------------------------------------------- email (tùy chọn, dùng Resend)
-async function sendDownloadEmail(order) {
-  const key = env('RESEND_API_KEY'); const from = env('MAIL_FROM');
-  if (!key || !from || !order.email) return false;
-  const base = settings().siteUrl;
-  const link = `${base}/?order=${order.code}&token=${order.token}#mua`;
-  try {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from, to: [order.email], subject: order.plan === 'pro' ? 'Muse Studio Pro (tool + prompt): link tải về của bạn' : 'Muse Studio: link tải về của bạn',
-        html: `<p>Cảm ơn bạn đã mua Muse Studio. Mã đơn: <b>${order.code}</b>.</p><p><a href="${link}">Bấm vào đây để tải về</a> (tải tối đa ${settings().downloadLimit} lần). Hãy giữ kín link này.</p><p>Sau khi tải, giải nén rồi bấm đúp Start.bat. Hướng dẫn chi tiết nằm trong README.md.</p>${settings().supportEmail ? `<p>Cần hỗ trợ? Trả lời email này hoặc gửi tới <a href="mailto:${settings().supportEmail}">${settings().supportEmail}</a> kèm mã đơn.</p>` : ''}`,
-      }),
-    });
-    return response.ok;
-  } catch { return false; }
-}
-
-module.exports = {
-  env, settings, planOf, planPrice, planFile, redis, pipeline, getOrder, saveOrder, ORDER_PENDING_TTL, ORDER_PAID_TTL, STAT_TTL, dayKey, statInc, isBot, deviceOf,
-  safeEqual, clientIp, randomCode, randomToken, noStore, parseBody, findCodes, logReview, listReview, logPaid, emailConfigured, adminToken, isAdmin, adminCookie, ADMIN_COOKIE, readRelease, sendDownloadEmail, memory,
-};
+module.exports = { env, landingUrl, redis, memory, safeEqual, clientIp, noStore, parseBody, adminToken, isAdmin, adminCookie, isWorker, ADMIN_COOKIE };
